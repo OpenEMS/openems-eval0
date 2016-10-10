@@ -1,4 +1,4 @@
-package io.openems.impl.scheduler;
+package io.openems.core.scheduler;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -10,57 +10,24 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import io.openems.core.Thing;
-import io.openems.core.Things;
-import io.openems.core.controller.Controller;
-import io.openems.core.controller.Controllers;
-import io.openems.core.controller.IsRequiredReadonly;
-import io.openems.core.controller.IsRequiredWritable;
-import io.openems.core.device.ess.Commercial;
-import io.openems.core.item.IsItem;
-import io.openems.impl.controller.AvoidTotalDischargeController;
+import io.openems.api.controller.Controller;
+import io.openems.api.general.Thing;
+import io.openems.api.general.dataaccess.IsItem;
+import io.openems.api.general.dataaccess.IsRequired;
+import io.openems.core.datamanager.DataManager;
 
 public class Scheduler {
+	
+	private final DataManager dm;
+	
+	public Scheduler(DataManager dm){
+		this.dm = dm;
+	}
 	
 	public void activate() {
 		System.out.println("Activate");
 		
-		Things things = new Things();
 		
-		// Define all devices
-		things.put(new Commercial("ess0"));
-		
-		// Define all controllers
-		Controllers controllers = new Controllers();
-		controllers.put(new AvoidTotalDischargeController("controller0"));
-		things.putAll(controllers.getAll());
-		
-		// Output all items of all things
-		System.out.println("All items of all things:");
-		for(Thing thing : things.getAll()) {
-			System.out.println("  Thing: " + thing.getName());
-			List<Member> members = getItemMembers(thing);
-			for(Member member : members) {
-				System.out.println("    Item: " + member.getName() + " (" + member.getClass().getSimpleName() + ")");
-			}
-		}
-		
-		// All requirements by all Controllers
-		System.out.println("All required items of all controllers:");
-		for(Controller controller : controllers.getAll()) {
-			System.out.println("  Controller: " + controller.getName());
-			List<Field> fields = getRequiredReadonlyFields(controller);
-			for(Field field : fields) {
-				System.out.println("    Readonly: " + field.getName() + " (" + field.getClass().getSimpleName() + ", " + field.getAnnotation(IsRequiredReadonly.class).itemId() + ", " + field.getAnnotation(IsRequiredReadonly.class).clazz().getName() + ")");
-			}
-			/*members = getRequiredWritableMembers(controller);
-			for(Member member : members) {
-				System.out.println("    Writable: " + member.getName() + " (" + member.getClass().getSimpleName() + ")");
-			}*/
-		}
-		
-//		Controller controller = getHighestPriorityController(null);
-//		System.out.println("Highest Controller: " + controller);
 	}
 	
 	private Set<Class<?>> getAllSuperclasses(Class<?> clazz) {
@@ -143,15 +110,11 @@ public class Scheduler {
 	}
 
 	private List<Field> getRequiredReadonlyFields(Controller controller) {
-		return getMatchingFields(controller, IsRequiredReadonly.class);
+		return getMatchingFields(controller, IsRequired.class);
 	}
 
 	private List<Member> getRequiredReadonlyMembers(Controller controller) {
-		return getMatchingMembers(controller, IsRequiredReadonly.class);
-	}
-	
-	private List<Member> getRequiredWritableMembers(Controller controller) {
-		return getMatchingMembers(controller, IsRequiredWritable.class);
+		return getMatchingMembers(controller, IsRequired.class);
 	}
 	
 //	private Controller getHighestPriorityController(Integer startFromPriority) {

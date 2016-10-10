@@ -1,7 +1,7 @@
-package io.openems.core.controller;
+package io.openems.api.controller;
 
-import io.openems.core.Thing;
-import io.openems.core.item.IsItem;
+import io.openems.api.general.Thing;
+import io.openems.api.general.dataaccess.IsItem;
 
 public abstract class Controller implements Thing {
 	private final String name;

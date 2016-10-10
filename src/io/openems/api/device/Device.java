@@ -1,8 +1,8 @@
-package io.openems.core.device;
+package io.openems.api.device;
 
-import io.openems.core.Thing;
+import io.openems.api.general.Thing;
 
-public class Device implements Thing {
+public abstract class Device implements Thing {
 	private final String name;
 	
 	public Device(String name) {
@@ -13,5 +13,6 @@ public class Device implements Thing {
 	public String getName() {
 		return this.name;
 	}
+
 
 }
