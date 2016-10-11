@@ -4,11 +4,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 import io.openems.api.general.Thing;
-import io.openems.api.general.data.Permission;
 
 @Retention(RetentionPolicy.RUNTIME)
 public @interface IsRequired {
-	Class<? extends Thing> clazz();
+	Class<? extends Thing> type();
 	String itemId();
 	Permission permission();
 }

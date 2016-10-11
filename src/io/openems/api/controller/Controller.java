@@ -15,8 +15,8 @@ public abstract class Controller implements Thing {
 	 * 
 	 * @return
 	 */
-	@IsItem
-	public abstract int priority();
+//	@IsItem
+//	public abstract int priority();
 	
 	public abstract void run();
 
@@ -24,4 +24,6 @@ public abstract class Controller implements Thing {
 	public String getName() {
 		return this.name;
 	}
+	
+	public abstract int priority();
 }
