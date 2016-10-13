@@ -1,5 +1,6 @@
 package io.openems.core.datamanager;
 
+import io.openems.api.general.data.Record;
 import io.openems.api.general.data.Value;
 import io.openems.api.general.data.element.Element;
 import io.openems.api.general.data.element.ElementChangedListener;

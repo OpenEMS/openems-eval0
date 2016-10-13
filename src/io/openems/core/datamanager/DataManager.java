@@ -22,12 +22,12 @@ public class DataManager {
 
 	private final Map<ChannelId, Channel> channels;
 	private final Map<String, Thing> things;
-	private final Map<String, List<String>> typeIdMapping;
-
+	private final Map<Thing,List<Channel>> thingChannels;
+	
 	public DataManager() {
 		channels = new HashMap<>();
 		things = new HashMap<>();
-		typeIdMapping = new HashMap<>();
+		thingChannels = new HashMap<>();
 	}
 
 	public Channel getChannel(ChannelId id) throws ChannelNotFoundException {
@@ -48,6 +48,7 @@ public class DataManager {
 	private void registerChannels(Thing thing) {
 		Class<?> thingClass = thing.getClass();
 		List<Method> methods = getMatchingFields(thing, IsItem.class);
+		List<Channel> foundChannels = new ArrayList<>();
 		for (Method m : methods) {
 			try {
 				Method writeMethod = null;
@@ -64,6 +65,7 @@ public class DataManager {
 							ChannelUpdateElementChangeListener listener = new ChannelUpdateElementChangeListener(c);
 							e.addListener(listener);
 							channels.put(c.getId(), c);
+							foundChannels.add(c);
 						}
 					} catch (IllegalAccessException e) {
 						// TODO Auto-generated catch block
@@ -81,6 +83,7 @@ public class DataManager {
 				e.printStackTrace();
 			}
 		}
+		thingChannels.put(thing, foundChannels);
 	}
 
 	private List<Method> getMatchingFields(Object obj, Class<? extends Annotation> annotation) {
@@ -126,5 +129,24 @@ public class DataManager {
 			clazz = superClass;
 		} while (!"java.lang.Object".equals(clazz.getCanonicalName()));
 		return new HashSet<Class<?>>(res);
+	}
+
+	public List<Thing> getThingsByClass(Class<? extends Thing> type) {
+		List<Thing> result = new ArrayList<>();
+		for(Thing thing : things.values()){
+			if(type.isAssignableFrom(thing.getClass())){
+				result.add(thing);
+			}
+		}
+		return result;
+	}
+
+	public Channel getChannelFromThing(Thing thing, String itemId) {
+		for(Channel channel: thingChannels.get(thing)){
+			if(channel.getName().toLowerCase().equals(itemId.toLowerCase())){
+				return channel;
+			}
+		}
+		return null;
 	}
 }

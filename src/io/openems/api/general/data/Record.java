@@ -1,7 +1,4 @@
-package io.openems.core.datamanager;
-
-import io.openems.api.general.data.Flag;
-import io.openems.api.general.data.Value;
+package io.openems.api.general.data;
 
 public class Record {
 	

@@ -51,6 +51,9 @@ public class ChannelId {
 		return true;
 	}
 	
-	
+	@Override
+	public String toString() {
+		return thingName + ":"+ channelName;
+	}
 	
 }

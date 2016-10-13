@@ -42,7 +42,12 @@ public class App {
 		List<Controller> controller = new LinkedList<>();
 		controller.add(new AvoidTotalDischargeController("controller1"));
 		Scheduler s = new Scheduler(dm,controller);
-		s.activate();
+		try {
+			s.activate();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 }

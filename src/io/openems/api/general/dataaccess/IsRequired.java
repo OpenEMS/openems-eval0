@@ -7,7 +7,6 @@ import io.openems.api.general.Thing;
 
 @Retention(RetentionPolicy.RUNTIME)
 public @interface IsRequired {
-	Class<? extends Thing> type();
 	String itemId();
 	Permission permission();
 }

@@ -4,6 +4,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import io.openems.api.general.Thing;
+import io.openems.api.general.data.Record;
 import io.openems.api.general.data.Value;
 
 public class Channel {

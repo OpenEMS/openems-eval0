@@ -11,9 +11,16 @@ public class Commercial extends Device implements Ess {
 
 	private Element soc;
 	
+	private Element activePower;
+	
 	@IsItem
 	public Element getSoc(){
 		return soc;
+	}
+	
+	@IsItem
+	public Element getActivePower(){
+		return activePower;
 	}
 	
 	public void writeSoc(Value v){
@@ -24,6 +31,7 @@ public class Commercial extends Device implements Ess {
 	public Commercial(String name) {
 		super(name);
 		soc = new Element();
+		activePower = new Element();
 	}
 
 }
