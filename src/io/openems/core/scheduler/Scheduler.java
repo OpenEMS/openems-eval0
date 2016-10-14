@@ -8,17 +8,19 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import io.openems.api.controller.Controller;
 import io.openems.api.controller.DataMap;
 import io.openems.api.controller.Mapping;
+import io.openems.api.controller.Range;
 import io.openems.api.general.Thing;
 import io.openems.api.general.data.Record;
 import io.openems.api.general.data.Value;
 import io.openems.api.general.dataaccess.IsRequired;
 import io.openems.api.general.dataaccess.Permission;
 import io.openems.core.datamanager.Channel;
-import io.openems.core.datamanager.ChannelMapping;
+import io.openems.core.datamanager.ChannelWriteException;
 import io.openems.core.datamanager.DataManager;
 
 public class Scheduler extends Thread {
@@ -29,17 +31,20 @@ public class Scheduler extends Thread {
 	private final int wait = 1000;
 	private final Map<Controller, List<ChannelMapping>> readFieldMapping;
 	private final Map<Controller, List<ChannelMapping>> writeFieldMapping;
+	private final List<Channel> writtenChannels;
+	private final Map<Channel, Range> rangeCache;
 
 	public Scheduler(DataManager dm, List<Controller> controller) {
 		this.dm = dm;
 		this.controller = controller;
 		this.readFieldMapping = new HashMap<>();
 		this.writeFieldMapping = new HashMap<>();
+		writtenChannels = new ArrayList<>();
+		rangeCache = new HashMap<>();
 	}
 
 	public void activate() throws Exception {
 		System.out.println("Activate");
-		Collections.sort(controller, (Controller c1, Controller c2) -> c1.priority() - c2.priority());
 		try {
 			generateMappings();
 		} catch (InstantiationException | IllegalAccessException e) {
@@ -52,19 +57,29 @@ public class Scheduler extends Thread {
 	@Override
 	public void run() {
 		while (!this.isInterrupted()) {
+			Collections.sort(controller, (Controller c1, Controller c2) -> c1.priority() - c2.priority());
 			lastExecution = System.currentTimeMillis();
+			writtenChannels.clear();
+			rangeCache.clear();
 			for (Controller c : controller) {
-				// TODO Set values to Fields
 				try {
-					updateReadMappings(c);
-					// TODO Timeout
-					c.run();
-					
-					checkWriteMappings(c);
+					if (isExecutionAllowed(c)) {
+						updateReadMappings(c);
+						// TODO Timeout
+						c.run();
+
+						checkWriteMappings(c);
+					}
 				} catch (IllegalArgumentException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (IllegalAccessException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (ChannelWriteException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (RangeModificationException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
@@ -83,17 +98,47 @@ public class Scheduler extends Thread {
 
 	private void updateReadMappings(Controller c) throws IllegalArgumentException, IllegalAccessException {
 		for (ChannelMapping cm : readFieldMapping.get(c)) {
-			cm.updateField();
-		}
-	}
-	
-	private void checkWriteMappings(Controller c) throws IllegalArgumentException, IllegalAccessException{
-		for(ChannelMapping cm : writeFieldMapping.get(c)){
-			Value v = cm.getWrittenValue();
-			if(v != null){
-				System.out.println("Controller "+ c.getName() + " has written Value " + v.asString() + " on Field " + cm.getChannel().getId());
+			Range r = rangeCache.get(cm.getChannel());
+			if (r != null) {
+				cm.updateField(r);
+			} else {
+				cm.updateField();
 			}
 		}
+	}
+
+	private void checkWriteMappings(Controller c)
+			throws IllegalArgumentException, IllegalAccessException, ChannelWriteException, RangeModificationException {
+		HashMap<Channel, Range> writtenRanges = new HashMap<>();
+		HashMap<Channel, Range> ranges = new HashMap<>();
+		for (ChannelMapping cm : writeFieldMapping.get(c)) {
+			Range r = cm.getWriteRange();
+			if (r != null) {
+				ranges.put(cm.getChannel(), r);
+				if (r.getWriteValue() != null) {
+					writtenRanges.put(cm.getChannel(), r);
+				}
+			}
+		}
+		for (Entry<Channel, Range> r : ranges.entrySet()) {
+			rangeCache.put(r.getKey(), r.getValue());
+		}
+		for (Entry<Channel, Range> wr : writtenRanges.entrySet()) {
+			System.out.println("Controller " + c.getName() + " has written Value " + wr.getValue().getWriteValue().asString()
+					+ " on Field " + wr.getKey().getId());
+			wr.getKey().write(wr.getValue().getWriteValue());
+			writtenChannels.add(wr.getKey());
+		}
+	}
+
+	private boolean isExecutionAllowed(Controller c) {
+		List<ChannelMapping> mappings = writeFieldMapping.get(c);
+		for (ChannelMapping mapping : mappings) {
+			if (writtenChannels.contains(mapping.getChannel())) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private void generateMappings() throws InstantiationException, IllegalAccessException {
@@ -126,15 +171,14 @@ public class Scheduler extends Thread {
 									IsRequired r = mappingField.getAnnotation(IsRequired.class);
 									// Search Channel by id and generate
 									// channelmapping
-									if (r.permission() == Permission.READ && mappingField.getType().equals(Record.class)) {
+									if (mappingField.getType().equals(Range.class)) {
 										Channel channel = dm.getChannelFromThing(thing, r.itemId());
 										if (channel != null) {
-											readChannelMap.add(new ChannelMapping(channel, mappingField, dataMap));
-										}
-									}else if(r.permission() == Permission.WRITE && Value.class.isAssignableFrom(mappingField.getType())){
-										Channel channel = dm.getChannelFromThing(thing, r.itemId());
-										if (channel != null) {
-											writeChannelMap.add(new ChannelMapping(channel, mappingField, dataMap));
+											ChannelMapping cm = new ChannelMapping(channel, mappingField, dataMap);
+											readChannelMap.add(cm);
+											if (r.permission() == Permission.WRITE) {
+												writeChannelMap.add(cm);
+											}
 										}
 									}
 								}
@@ -146,113 +190,4 @@ public class Scheduler extends Thread {
 			}
 		}
 	}
-
-	// private Set<Class<?>> getAllSuperclasses(Class<?> clazz) {
-	// // Source:
-	// http://stackoverflow.com/questions/22031207/find-all-classes-and-interfaces-a-class-extends-or-implements-recursively
-	// List<Class<?>> res = new ArrayList<>();
-	// do {
-	// res.add(clazz);
-	//
-	// // First, add all the interfaces implemented by this class
-	// Class<?>[] interfaces = clazz.getInterfaces();
-	// if (interfaces.length > 0) {
-	// res.addAll(Arrays.asList(interfaces));
-	//
-	// for (Class<?> interfaze : interfaces) {
-	// res.addAll(getAllSuperclasses(interfaze));
-	// }
-	// }
-	//
-	// // Add the super class
-	// Class<?> superClass = clazz.getSuperclass();
-	//
-	// // Interfaces does not have java,lang.Object as superclass, they have
-	// null, so break the cycle and return
-	// if (superClass == null) {
-	// break;
-	// }
-	//
-	// // Now inspect the superclass
-	// clazz = superClass;
-	// } while (!"java.lang.Object".equals(clazz.getCanonicalName()));
-	// return new HashSet<Class<?>>(res);
-	// }
-	//
-	// private List<Field> getMatchingFields(Object obj, Class<? extends
-	// Annotation> annotation) {
-	// Set<Class<?>> clazzes = getAllSuperclasses(obj.getClass());
-	// ArrayList<Field> fields = new ArrayList<>();
-	// for(Class<?> clazz : clazzes) {
-	// for (Field field : clazz.getDeclaredFields()) {
-	// if (field.isAnnotationPresent(annotation)) {
-	// fields.add(field);
-	// }
-	// }
-	// }
-	// return fields;
-	// }
-	//
-	// private List<Method> getMatchingMethods(Object obj, Class<? extends
-	// Annotation> annotation) {
-	// Set<Class<?>> clazzes = getAllSuperclasses(obj.getClass());
-	// ArrayList<Method> methods = new ArrayList<>();
-	// for(Class<?> clazz : clazzes) {
-	// for (Method method : clazz.getDeclaredMethods()) {
-	// if (method.isAnnotationPresent(annotation)) {
-	// methods.add(method);
-	// }
-	// }
-	// }
-	// return methods;
-	// }
-	//
-	// // Obsolete
-	// private List<Member> getMatchingMembers(Object obj, Class<? extends
-	// Annotation> annotation) {
-	// Set<Class<?>> clazzes = getAllSuperclasses(obj.getClass());
-	// ArrayList<Member> members = new ArrayList<>();
-	// for(Class<?> clazz : clazzes) {
-	// for (Field field : clazz.getDeclaredFields()) {
-	// if (field.isAnnotationPresent(annotation)) {
-	// members.add(field);
-	// }
-	// }
-	// for (Method method : clazz.getDeclaredMethods()) {
-	// if (method.isAnnotationPresent(annotation)) {
-	// members.add(method);
-	// }
-	// }
-	// }
-	// return members;
-	// }
-	//
-	// private List<Member> getItemMembers(Thing thing) {
-	// return getMatchingMembers(thing, IsItem.class);
-	// }
-	//
-	// private List<Field> getRequiredReadonlyFields(Controller controller) {
-	// return getMatchingFields(controller, IsRequired.class);
-	// }
-	//
-	// private List<Member> getRequiredReadonlyMembers(Controller controller) {
-	// return getMatchingMembers(controller, IsRequired.class);
-	// }
-	//
-	// private Controller getHighestPriorityController(Integer
-	// startFromPriority) {
-	// Controller returnController = null;
-	// for(Controller controller : controllers.values()) {
-	// if(controller.getPriority() < startFromPriority) {
-	// if(returnController == null) {
-	// returnController = controller;
-	// } else {
-	// if(returnController.getPriority() < controller.getPriority()) {
-	// returnController = controller;
-	// }
-	// }
-	// }
-	// }
-	// return returnController;
-	// }
 }

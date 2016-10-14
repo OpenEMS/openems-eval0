@@ -23,8 +23,9 @@ public class Commercial extends Device implements Ess {
 		return activePower;
 	}
 	
-	public void writeSoc(Value v){
+	public void writeActivePower(Value v){
 		soc.setValue(v);
+		activePower.setValue(v);
 		System.out.println(v.toString());
 	}
 	

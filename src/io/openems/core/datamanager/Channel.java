@@ -56,7 +56,7 @@ public class Channel {
 				throw new ChannelWriteException("failed to write value to thing.",e);
 			}
 		} else {
-			throw new ChannelWriteException("Can't find write method för attribute " + id.getChannelName()
+			throw new ChannelWriteException("Can't find write method for attribute " + id.getChannelName()
 					+ " in class " + thing.getClass().getName());
 		}
 	}
